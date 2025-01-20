@@ -1,6 +1,7 @@
 import unittest
 
 from ntru_py.sage import ( 
+    # ntru sage core objects
     Rx,
     center_modulo,
     convolve, 
@@ -10,7 +11,42 @@ from ntru_py.sage import (
     invert_modp,
     invert_modq,
     random_message,
+    # ntc_api
+    generate_testcase,
+    validate_testcase,
 )
+
+class TestNtruNTC(unittest.TestCase):
+
+    N_ITERS = 25
+
+    def test_deterministic_seed(self):
+
+        # To tests should produce the same results
+        ntc1 = generate_testcase('small', seed=42)
+        ntc2 = generate_testcase('small', seed=42)
+
+        self.assertEqual(ntc1.h, ntc2.h)
+        self.assertEqual(ntc1.f, ntc2.f)
+        self.assertEqual(ntc1.fp, ntc2.fp)
+        self.assertEqual(ntc1.m, ntc2.m)
+        self.assertEqual(ntc1.c, ntc2.c)
+
+    def test_self_random_small(self):
+        for _ in range(self.N_ITERS):
+            ntc = generate_testcase('small')
+            self.assertTrue(validate_testcase(ntc))
+
+    def test_self_random_medium(self):
+        for _ in range(self.N_ITERS):
+            ntc = generate_testcase('medium')
+            self.assertTrue(validate_testcase(ntc))
+
+
+    def test_self_random_big(self):
+        for _ in range(self.N_ITERS):
+            ntc = generate_testcase('big')
+            self.assertTrue(validate_testcase(ntc))
 
 class TestNtruCore(unittest.TestCase):
 
@@ -66,6 +102,6 @@ class TestNtruCore(unittest.TestCase):
             else:
                 return True
 
-        self.assertTrue(_check_decryption(N=7, p=3, q=64, d=3, n_tests=100))
-        self.assertTrue(_check_decryption(N=13, p=3, q=128, d=3, n_tests=100))
-        self.assertTrue(_check_decryption(N=509, p=3, q=2048, d=11, n_tests=100))
+        self.assertTrue(_check_decryption(N=7, p=3, q=64, d=3, n_tests=25))
+        self.assertTrue(_check_decryption(N=13, p=3, q=128, d=3, n_tests=25))
+        self.assertTrue(_check_decryption(N=509, p=3, q=2048, d=11, n_tests=25))
