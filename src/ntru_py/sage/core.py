@@ -58,6 +58,10 @@ def center_modulo(f, q: int):
     coeffs = [ center_coeff(fc) for fc in f ]
     return Rx(coeffs)
 
+def positive_modulo(f, q: int):
+    """Return coefficients of polynomial modulo q: in [0, q)"""
+    return Rx([ (fc % q + q) % q for fc in f ])
+
 def invert_modp(f, N: int, p: int):
     """Find fp^-1 such that f * fp^-1 = 1 and p is prime"""
     T = Rx.change_ring(Integers(p)).quotient(x**N - 1)
@@ -69,13 +73,22 @@ def invert_modq(f, N: int, q: int):
     g = invert_modp(f, N, 2)
     while True:
         gf = convolve(g, f, N)
-        # How does r relate to r in previous loop?
-        r = center_modulo(gf, q)
+        r = positive_modulo(gf, q)
         if r == 1: 
             return g
-        # Why 2 - r?
+
+        # 2 - r is actually shortened version from:
+        #   g2 = g1 * (1 - 2 * [(f * g - 1) / 2]) = g1 * (2 - f * g1) = 2g1 - fg1^2
+        # which comes from the fact that:
+        #   f * g1 = 1 + 2r(x) 
+        # If we multiply the result by (1 - 2r(x)) we will obtain:
+        #   f * g1 * (1 - 2r(x)) = 1 + 4r(x)^2 
+        # Which gives 1 mod 4 (exactly what we want)
         g2r = convolve(g, 2 - r, N)
-        g = center_modulo(g2r, q)
+        g = positive_modulo(g2r, q)
+
+    assert convolve(f, g, N) == 1
+    return g
     return None
 
 def gen_keypair(N: int, p: int, q: int, d: int) -> tuple:
@@ -95,10 +108,12 @@ def gen_keypair(N: int, p: int, q: int, d: int) -> tuple:
     # Randomly select polynomial g
     g = random_poly(N, d, d)
     # pk = h = p(f_q * g) % q
-    pk = center_modulo(p * convolve(fq, g, N), q)
-    # Store both f and fp for speeding up the decryption
-    sk = (f, fp)
-    return pk, sk
+    # h = center_modulo(p * convolve(fq, g, N), q)
+    h = positive_modulo(p * convolve(fq, g, N), q)
+
+
+    # Return also additional info
+    return h, f, fp, fq, g
 
 def encrypt(m, pk, d: int, N: int, q: int):
     """Encrypt polynomial `m` given public key `pk` and NTRU Domain Parameters"""
@@ -108,13 +123,12 @@ def encrypt(m, pk, d: int, N: int, q: int):
 
     # Convolve, Add and Center
     hr = convolve(pk, r, N)
-    return center_modulo(hr + m, q)
 
-def decrypt(c, sk, N: int, p: int, q: int):
+    # Return ciphertext and randomly selected polynomial
+    return positive_modulo(hr + m, q), r
+
+def decrypt(c, f, fp, N: int, p: int, q: int):
     """Decrypt polymomial `c` given secret key `sk` and NTRU Domain Parameters"""
-
-    # Split secret polynomial f and its inverse modp
-    f, fp = sk
 
     # a = [ c * f ]q
     a = center_modulo(convolve(c, f, N), q)

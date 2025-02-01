@@ -1,46 +1,44 @@
-from ntru_py.ntc import NtruTestCase
+from ntru_py.ntc.ntc import NtruTestCase, NTRU_PARAMS
 
 from .core import * 
 
-def generate_testcase(test_size: str, seed: int = None) -> NtruTestCase:
-    """Run tests for  small / medium / big"""
+def sage_generate_testcase(param_set: str) -> NtruTestCase:
 
-    if test_size == 'small':
-        N, p, q, d = (7, 3, 32, 2)
-    elif test_size == 'medium':
-        N, p, q, d = (91, 3, 512, 5)
-    elif test_size == 'big':
-        N, p, q, d = (509, 3, 2048, 11)
-    else:
-        raise ValueError("Incorrect value provided")
+    allowed_sets = list(NTRU_PARAMS.keys())
+    if param_set not in allowed_sets:
+        raise ValueError(f"Incorrect param set string provided {param_set}. Possible values are: {allowed_sets}")
 
-    random.seed(seed)
+    N, p, q, d = NTRU_PARAMS[param_set].values()
 
-    pk, sk = gen_keypair(N, p, q, d) 
+    h, f, fp, fq, g = gen_keypair(N, p, q, d) 
     m = random_message(N)
-    c = encrypt(m, pk, d, N, q)
-    assert m == decrypt(c, sk, N, p, q)
+    c, r = encrypt(m, h, d, N, q)
+    assert m == decrypt(c, f, fp, N, p, q)
 
     raw_coeffs = lambda f: [ int(c) for c in f ]
 
-    f, fp = sk
     ntc = NtruTestCase(
         N, p, q, d, 
-        raw_coeffs(pk), 
+        raw_coeffs(h), 
         raw_coeffs(f),
-        raw_coeffs(fp), 
         raw_coeffs(m), 
-        raw_coeffs(c)
+        raw_coeffs(c),
+        raw_coeffs(fp),
+        raw_coeffs(fq),
+        raw_coeffs(r),
+        raw_coeffs(g),
     ) 
 
     return ntc
 
 
-def validate_testcase(ntc: NtruTestCase) -> bool:
+def sage_validate_testcase(ntc: NtruTestCase) -> bool:
     """Run validation test for NtruTestCase and return whether it was successful"""
 
     N, p, q, d = ntc.N, ntc.p, ntc.q, ntc.d
-    h, f, fp, m, c = list(map(Rx, [ntc.h, ntc.f, ntc.fp, ntc.m, ntc.c]))
+    h, f, m, c, fp, fq, r, g = list(map(Rx, 
+        [ntc.h, ntc.f, ntc.m, ntc.c, ntc.fp, ntc.fq, ntc.r, ntc.g]
+    ))
 
     # 1. Test if fp is a proper inverse of f 
     # Can give negative modulo result
@@ -66,8 +64,8 @@ def validate_testcase(ntc: NtruTestCase) -> bool:
         return False
 
     # 4. Test if all polynomial coefficients are centered 
-    if not all(x in range(-q // 2, q // 2) for x in h):
-        raise ValueError("Coefficients of public h outside of [-q//2, q//2)")
+    if not all(x in range(0, q) for x in h):
+        raise ValueError("Coefficients of public h outside of [0, q)")
         return False
 
     # Test for valid encryption of the message
@@ -76,7 +74,7 @@ def validate_testcase(ntc: NtruTestCase) -> bool:
     #     raise ValueError("Encryption result of m is not equal given ciphertext c")
 
     # Test for valid decryption of the message
-    if m != decrypt(c, (f, fp), N, p, q):
+    if m != decrypt(c, f, fp, N, p, q):
         raise ValueError("Decryption result of c is not equal given message m")
         return False
 
