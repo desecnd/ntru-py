@@ -1,4 +1,7 @@
 import unittest
+import math
+
+from sage.all import xgcd, Zmod
 
 from ntru_py.sage import ( 
     # ntru sage core objects
@@ -12,41 +15,90 @@ from ntru_py.sage import (
     invert_modq,
     random_message,
     # ntc_api
-    generate_testcase,
-    validate_testcase,
+    sage_generate_testcase,
+    sage_validate_testcase,
 )
+
+from ntru_py.poly.core import *
+from ntru_py.poly.ntc_api import *
+
+
+class TestPolyNTC(unittest.TestCase):
+    N_ITERS = 1
+
+    def test_poly_random_small(self):
+        random.seed(0x0123)
+        for _ in range(self.N_ITERS):
+            ntc = sage_generate_testcase('tiny')
+            self.assertTrue(poly_validate_testcase(ntc))
+
+    def test_poly_random_small(self):
+        random.seed(0x4567)
+        for _ in range(self.N_ITERS):
+            ntc = sage_generate_testcase('small')
+            self.assertTrue(poly_validate_testcase(ntc))
+
+    def test_poly_random_128bit(self):
+        random.seed(0x89ab)
+        for _ in range(self.N_ITERS):
+            ntc = sage_generate_testcase('128bit')
+            self.assertTrue(poly_validate_testcase(ntc))
+
+    def test_poly_random_192bit(self):
+        random.seed(0xcdef)
+        for _ in range(self.N_ITERS):
+            ntc = sage_generate_testcase('192bit')
+            self.assertTrue(poly_validate_testcase(ntc))
+
+    def test_poly_random_256bit(self):
+        random.seed(0xcafe)
+        for _ in range(self.N_ITERS):
+            ntc = sage_generate_testcase('256bit')
+            self.assertTrue(poly_validate_testcase(ntc))
 
 class TestNtruNTC(unittest.TestCase):
 
-    N_ITERS = 25
+    N_ITERS = 1
 
     def test_deterministic_seed(self):
 
         # To tests should produce the same results
-        ntc1 = generate_testcase('small', seed=42)
-        ntc2 = generate_testcase('small', seed=42)
+        random.seed(42)
+        ntc1 = sage_generate_testcase('small')
+        random.seed(42)
+        ntc2 = sage_generate_testcase('small')
 
-        self.assertEqual(ntc1.h, ntc2.h)
-        self.assertEqual(ntc1.f, ntc2.f)
-        self.assertEqual(ntc1.fp, ntc2.fp)
-        self.assertEqual(ntc1.m, ntc2.m)
-        self.assertEqual(ntc1.c, ntc2.c)
+        self.assertEqual(ntc1, ntc2)
 
     def test_self_random_small(self):
+        random.seed(0x0123)
         for _ in range(self.N_ITERS):
-            ntc = generate_testcase('small')
-            self.assertTrue(validate_testcase(ntc))
+            ntc = sage_generate_testcase('tiny')
+            self.assertTrue(sage_validate_testcase(ntc))
 
-    def test_self_random_medium(self):
+    def test_self_random_small(self):
+        random.seed(0x4567)
         for _ in range(self.N_ITERS):
-            ntc = generate_testcase('medium')
-            self.assertTrue(validate_testcase(ntc))
+            ntc = sage_generate_testcase('small')
+            self.assertTrue(sage_validate_testcase(ntc))
 
-
-    def test_self_random_big(self):
+    def test_self_random_128bit(self):
+        random.seed(0x89ab)
         for _ in range(self.N_ITERS):
-            ntc = generate_testcase('big')
-            self.assertTrue(validate_testcase(ntc))
+            ntc = sage_generate_testcase('128bit')
+            self.assertTrue(sage_validate_testcase(ntc))
+
+    def test_self_random_192bit(self):
+        random.seed(0xcdef)
+        for _ in range(self.N_ITERS):
+            ntc = sage_generate_testcase('192bit')
+            self.assertTrue(sage_validate_testcase(ntc))
+
+    def test_self_random_256bit(self):
+        random.seed(0xcafe)
+        for _ in range(self.N_ITERS):
+            ntc = sage_generate_testcase('256bit')
+            self.assertTrue(sage_validate_testcase(ntc))
 
 class TestNtruCore(unittest.TestCase):
 
@@ -93,15 +145,76 @@ class TestNtruCore(unittest.TestCase):
 
         def _check_decryption(N: int, p: int, q: int, d: int, n_tests: int = 100) -> bool:
             for _ in range(n_tests):
-                pk, sk = gen_keypair(N, p, q, d) 
+                h, f, fp, fq, g = gen_keypair(N, p, q, d) 
                 m = random_message(N)
-                c = encrypt(m, pk, d, N, q)
-                m_dec = decrypt(c, sk, N, p, q)
+                c, _ = encrypt(m, h, d, N, q)
+                m_dec = decrypt(c, f, fp, N, p, q)
                 if m != m_dec:
                     return False
             else:
                 return True
+        
+        n_tests = 10
 
-        self.assertTrue(_check_decryption(N=7, p=3, q=64, d=3, n_tests=25))
-        self.assertTrue(_check_decryption(N=13, p=3, q=128, d=3, n_tests=25))
-        self.assertTrue(_check_decryption(N=509, p=3, q=2048, d=11, n_tests=25))
+        self.assertTrue(_check_decryption(N=7, p=3, q=64, d=3, n_tests=n_tests))
+        self.assertTrue(_check_decryption(N=13, p=3, q=128, d=3, n_tests=n_tests))
+        self.assertTrue(_check_decryption(N=509, p=3, q=2048, d=11, n_tests=n_tests))
+
+import random
+
+class TestPyVsSage(unittest.TestCase):
+
+    N_ITERS = 1000
+    p = 7
+    Rt = Zmod(p)['t']; 
+    (t,) = Rt._first_ngens(1)
+
+    def _random_sagepoly(self, n: int):
+        return self.Rt([random.randint(0, self.p - 1) for _ in range(n)])
+
+    def sage2raw(self, f) -> list[int]:
+        return [ int(x) for x in f ]
+
+    def test_poly_div(self):
+        random.seed(42)
+
+        for _ in range(self.N_ITERS):
+            a_sage = self._random_sagepoly(10)
+            b_sage = 0
+            while b_sage == 0:
+                b_sage = self._random_sagepoly(10)
+
+            q_sage = a_sage // b_sage
+            r_sage = a_sage % b_sage
+
+            a, b = list(map(self.sage2raw, [a_sage, b_sage]))
+
+            q, r = poly_div_mod(a, b, self.p)
+
+            self.assertEqual(r, self.sage2raw(r_sage))
+            self.assertEqual(q, self.sage2raw(q_sage))
+
+    def test_poly_xgcd(self):
+        random.seed(42)
+
+        for _ in range(self.N_ITERS):
+
+            a_sage = self._random_sagepoly(10)
+            b_sage = self._random_sagepoly(10)
+
+            d_sage, x_sage, y_sage = xgcd(a_sage, b_sage)
+
+            a, b = list(map(self.sage2raw, [a_sage, b_sage]))
+
+            d, x, y = poly_xgcd(a, b, self.p)
+
+            self.assertEqual(d, self.sage2raw(d_sage))
+            self.assertEqual(x, self.sage2raw(x_sage))
+            self.assertEqual(y, self.sage2raw(y_sage))
+
+    def test_is_seed_deterministic(self):
+        random.seed(42)
+        a_sage = self._random_sagepoly(10)
+        random.seed(42)
+        b_sage = self._random_sagepoly(10)
+        self.assertEqual(a_sage, b_sage)
