@@ -18,7 +18,7 @@ def poly_degree(a: list[int]) -> int | None:
 
 def poly_truncate_zeros(a: list[int]) -> list[int]:
     deg = poly_degree(a)
-    # Polynomial equal to 0 has undef
+    # Polynomial equal to 0 has undef degree
     if deg is None:
         return POLY_0
     else:
@@ -54,16 +54,7 @@ def poly_check_valid_lc(a: list[int]):
         raise ValueError("Leading coefficient of a polynomial must be non-zero.")
 
 def poly_make_monic_mod(a: list[int], m: int) -> list[int]:
-    """Make polynomial `a` monic modulo `m`. If a is already monic then do nothing.
-
-    :param a: Polynomial with leading coefficient != 0
-    :type a: list[int]
-    :param m: Modulus
-    :type m: int
-    :return: Polynomial `a` transformed to monic form (leading coefficient is 1)
-    :rtype: list[int]
-    :raises: ValueError when a is POLY_0 or leading coefficient is 0
-    """
+    """Make polynomial `a` monic modulo `m`. If a is already monic then do nothing."""
 
     # No special handling for 0 polynomial
     poly_check_valid_lc(a)
@@ -199,15 +190,7 @@ def poly_inv_modexp(a: list[int], M: list[int], p: int, e: int):
 
 
 def poly_div_mod(a: list[int], b: list[int], m: int) -> tuple[list[int], list[int]]:
-    """Divide polynomials over field of integers modulo `m` - `Z/mZ` and return quotient and reminder 
-
-    :param a: Polynomial in ascending order with non-zero leading coefficient
-    :type a: list[int]
-    :param b: Polynomial in ascending order with non-zero leading coefficient
-    :type b: list[int]
-    :param m: Modulus of the field 
-    :type m: int
-    """
+    """Divide polynomials over field of integers modulo `m` - `Z/mZ` and return quotient and reminder"""
 
     # Case when a = qb + r , for a < b, then: q = 0, r = a
     if len(a) < len(b):
@@ -276,6 +259,8 @@ def poly_center_mod(f: int, m: int):
     return coeffs
 
 def ntru_random_poly(N: int, d_pos: int, d_neg: int):
+    """Generate random polynomial in NTRU ring given number of 1's and -1's"""
+
     assert (d_sum := d_pos + d_neg) <= N
     coeffs = [ 0 ] * N
 
@@ -296,10 +281,14 @@ def ntru_random_poly(N: int, d_pos: int, d_neg: int):
     return coeffs
 
 def ntru_random_message(N: int, p: int):
+    """Generate random message suitable for NTRU encryption"""
+
     m = [ random.randint(-(p//2), p//2) for _ in range(N) ]
     return poly_truncate_zeros(m)
 
 def ntru_encrypt(N: int, q: int, d: int, m: list[int], h: list[int]) -> list[int]:
+    """Encrypt given message `m` for specific public key `h`, return ciphertext `c`."""
+
     # Select random polynomial for encryption
     r = ntru_random_poly(N, d, d)
 
@@ -310,6 +299,8 @@ def ntru_encrypt(N: int, q: int, d: int, m: list[int], h: list[int]) -> list[int
 
 
 def ntru_decrypt(N: int, p: int, q: int, c: list[int], f: list[int]) -> list[int]:
+    """Decrypt ciphertext `c` given private key `f` and public params."""
+
     # a = [ c * f ]q
     a = poly_circ_conv_mod(c, f, N, q)
     a = poly_center_mod(a, q)
@@ -326,6 +317,8 @@ def ntru_decrypt(N: int, p: int, q: int, c: list[int], f: list[int]) -> list[int
 
 
 def ntru_keygen(N: int, p: int, q: int, d: int, n_iters: int = 10000) -> tuple[list[int], list[int]]:
+    """Generate tuple `(pk, sk)` - pair of keys expressed in polynomials"""
+
     q_exp = int(math.log2(q))
     if 2 ** q_exp != q: 
         raise ValueError("Given NTRU parameter q is not a power of 2.")

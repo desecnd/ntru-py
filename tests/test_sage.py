@@ -1,5 +1,4 @@
 import unittest
-import math
 
 from sage.all import xgcd, Zmod
 

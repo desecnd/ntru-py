@@ -1,15 +1,14 @@
 from ntru_py.ntc.ntc import PolyCoeffs, NtruTuple, unpack_ntru_tuple, pack_ntru_tuple
+from pathlib import Path
+import json
 
+# Files created during the interaface usage:
 # pk.json
 # sk.json
 # c.json
 # m.json
 # m_enc.json
 # m_dec.json
-
-
-from pathlib import Path
-import json
 
 def _store_json_file_content(fname: str, content: str):
     path = Path(fname)
