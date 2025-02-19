@@ -72,8 +72,8 @@ if __name__ == "__main__":
         
         h, f = cmd_keygen(ntru_tuple)
 
-        pk_fname = sys.argv[3] if len(sys.argv) >= 4 else "pk.json"
-        sk_fname = sys.argv[4] if len(sys.argv) >= 5 else "sk.json"
+        pk_fname = sys.argv[3] if len(sys.argv) >= 4 else f"pk_{ntru_type}.json"
+        sk_fname = sys.argv[4] if len(sys.argv) >= 5 else f"sk_{ntru_type}.json"
 
         store_pk(h, ntru_tuple, pk_fname)
         store_sk(f, ntru_tuple, sk_fname)
