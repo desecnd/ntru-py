@@ -1,7 +1,7 @@
 # NTRU Python Implementation
 
 > [!WARNING]
-> Package contains cryptographic scheme which is not suitable for real-world applications. It should be treated only as an educational reference.
+> Package contains implementation of the NTRU cryptographic scheme which is not suitable for real-world applications. It should be treated only as an educational reference.
 
 This package is a pure Python implementation of [NTRU](https://en.wikipedia.org/wiki/NTRU) cryptosystem made as an educational excercise to understand the system better and as a project for the _Post-Quantum Cryptography_ course on Adam Mickiewicz University in Poznan.
 
